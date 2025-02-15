@@ -8,33 +8,41 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    # Секция services аналогична настройкам из docker-compose.yml
     services:
       postgres:
         image: postgres:13
+        # Определяем переменные окружения для тестовой базы данных
         env:
           POSTGRES_USER: django_user
           POSTGRES_PASSWORD: django_password
           POSTGRES_DB: kittygram_db
         ports:
           - 5432:5432
+        # Команда проверки готовности PostgreSQL, чтобы тесты не стартовали слишком рано
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
+
       - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8==6.0.0 flake8-isort==6.0.0
           pip install -r backend/requirements.txt
+
       - name: Run tests
+        # Добавляем переменные окружения для доступа к базе данных
         env:
           POSTGRES_USER: django_user
           POSTGRES_PASSWORD: django_password
           POSTGRES_DB: kittygram_db
+          # Подключаемся к PostgreSQL, запущенному в Docker (127.0.0.1:5432)
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
         run: |
@@ -48,16 +56,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Build and push backend image
         uses: docker/build-push-action@v4
         with:
+          # Путь к Dockerfile в каталоге backend
           context: ./backend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_backend:latest
@@ -69,16 +81,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
+          # Путь к Dockerfile в каталоге frontend
           context: ./frontend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_frontend:latest
@@ -90,16 +106,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
       - name: Build and push gateway image
         uses: docker/build-push-action@v4
         with:
+          # Путь к Dockerfile в каталоге nginx
           context: ./nginx/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_gateway:latest
@@ -114,6 +134,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
       - name: Copy docker-compose.production.yml via scp
         uses: appleboy/scp-action@master
         with:
@@ -123,6 +144,7 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "docker-compose.production.yml"
           target: "kittygram"
+
       - name: Run remote SSH commands for deploy
         uses: appleboy/ssh-action@master
         with:
