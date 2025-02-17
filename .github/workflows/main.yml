@@ -2,24 +2,19 @@ name: Kittygram CI/CD Workflow
 
 on:
   push:
-    branches:
-      - main
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-    # Секция services аналогична настройкам из docker-compose.yml
     services:
       postgres:
         image: postgres:13
-        # Определяем переменные окружения для тестовой базы данных
         env:
           POSTGRES_USER: django_user
           POSTGRES_PASSWORD: django_password
           POSTGRES_DB: kittygram_db
         ports:
           - 5432:5432
-        # Команда проверки готовности PostgreSQL, чтобы тесты не стартовали слишком рано
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
@@ -37,12 +32,10 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Run tests
-        # Добавляем переменные окружения для доступа к базе данных
         env:
           POSTGRES_USER: django_user
           POSTGRES_PASSWORD: django_password
           POSTGRES_DB: kittygram_db
-          # Подключаемся к PostgreSQL, запущенному в Docker (127.0.0.1:5432)
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
         run: |
@@ -52,6 +45,7 @@ jobs:
   build_and_push_backend:
     name: Build and push backend image
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs: tests
     steps:
       - name: Checkout code
@@ -69,7 +63,6 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v4
         with:
-          # Путь к Dockerfile в каталоге backend
           context: ./backend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_backend:latest
@@ -77,6 +70,7 @@ jobs:
   build_and_push_frontend:
     name: Build and push frontend image
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs: tests
     steps:
       - name: Checkout code
@@ -94,7 +88,6 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
-          # Путь к Dockerfile в каталоге frontend
           context: ./frontend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_frontend:latest
@@ -102,6 +95,7 @@ jobs:
   build_and_push_gateway:
     name: Build and push nginx image
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs: tests
     steps:
       - name: Checkout code
@@ -119,7 +113,6 @@ jobs:
       - name: Build and push nginx image
         uses: docker/build-push-action@v4
         with:
-          # Путь к Dockerfile в каталоге nginx
           context: ./nginx/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/kittygram_gateway:latest
@@ -127,6 +120,7 @@ jobs:
   deploy:
     name: Deploy to production server
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs:
       - build_and_push_backend
       - build_and_push_frontend
@@ -164,6 +158,7 @@ jobs:
   notify:
     name: Send Telegram notification
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     needs: deploy
     steps:
       - name: Send message
